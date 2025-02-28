@@ -1,6 +1,8 @@
 from django.db import models
 from decimal import Decimal
 # Create your models here.
+from django.db import models
+from django.utils.text import slugify
 
 class BaseModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
@@ -9,8 +11,15 @@ class BaseModel(models.Model):
     class Meta:
         abstract = True
 
-class Category(BaseModel):
-    title = models.CharField(max_length=100)
+
+class Category(models.Model):
+    title = models.CharField(max_length=200)
+    slug = models.SlugField(null=True, blank=True, default=None)
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.title)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.title
@@ -30,9 +39,14 @@ class Product(models.Model):
     description = models.TextField()
     price = models.DecimalField(decimal_places=2, max_digits=14)
     discount = models.PositiveIntegerField(default=0)
-    rating = models.PositiveIntegerField(choices=Choices.choices, default=Choices.ONE)
     shipping = models.PositiveIntegerField(default=0)
     stock = models.PositiveIntegerField(default=1)
+    slug = models.SlugField(null=True, blank=True, default=None)
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
 
     @property
     def rating_avg(self):
@@ -97,6 +111,13 @@ class Comment(BaseModel):
     name = models.CharField(max_length=100)
     email = models.EmailField()
     review = models.TextField()
+    slug = models.SlugField(blank=True, null=True)
+
+    def save(self, *args, **kwargs):
+        if not self.slug and self.product:  # Slug faqat bir marta yaratiladi
+            self.slug = slugify(self.product.name)
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return self.name
+        return f"Comment on {self.product.name}, from: {self.name}"
+

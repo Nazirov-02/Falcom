@@ -1,7 +1,7 @@
 
 from django.core.paginator import Paginator
 from django.db.models import Avg
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from pyexpat.errors import messages
 from .models import Comment
 from django.db.models import Q
@@ -14,22 +14,23 @@ from .forms import CommentForm
 # Create your views here.
 
 def product_list(request):
-    products = Product.objects.prefetch_related('images').all()
+    products = Product.objects.prefetch_related('images').all().order_by('-id')
     paginator = Paginator(products, 3)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-    return render(request,'products/product-list.html',{'page_obj': page_obj})
+    return render(request,'products/product-list.html',{'page_obj': page_obj,'products':products})
 
-def product_detail(request,pk):
-    products = Product.objects.prefetch_related('images').get(id=pk)
-    commentary = Comment.objects.filter(product=products)
-    return render(request,'products/product-details.html',{'products':products, 'comments':commentary})
+def product_detail(request,slug):
+    product = get_object_or_404(Product, slug=slug)
+    commentary = Comment.objects.filter(product=product)
+    return render(request,'products/product-details.html',{'product':product, 'comments':commentary})
 
 
 
-def comment(request,pk):
-    products = Product.objects.get(id=pk)
+def comment(request,slug):
+    products = Product.objects.get(slug=slug)
     if request.method == 'POST':
+        print(request.POST)
         form = CommentForm(request.POST)
         if form.is_valid():
             name = form.cleaned_data['name']
@@ -44,16 +45,15 @@ def comment(request,pk):
                 rating=rating,
             )
             commentary.save()
-            return redirect('comment-detail',pk=pk)
+            return redirect('products:comment',slug)
         print(form.errors)
     else:
         form = CommentForm()
-    commentary = Comment.objects.filter(id=pk)
-
+    commentary = products.comments.all()
     context = {
         'comments': commentary,
         'form': form,
-        'products': products,
+        'product': products,
     }
     return render(request, 'products/product-details.html', context)
 
